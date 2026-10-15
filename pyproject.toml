@@ -48,7 +48,7 @@ dev = [{ include-group = "test" }, { include-group = "docs" }, "bumpver>=2024.11
 default-groups = ["dev"]
 
 [tool.bumpver]
-current_version = "v0.1.0"
+current_version = "v0.2.0"
 version_pattern = "vMAJOR.MINOR.PATCH"
 commit_message = "Version {new_version}"
 tag_message = "Version {new_version}"
