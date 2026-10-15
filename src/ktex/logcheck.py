@@ -1,10 +1,10 @@
-"""Extrait erreurs et warnings d'un log (Xe|Lua|pdf)LaTeX (et du log Biber)
-en les localisant par fichier:ligne.
+"""Extract errors and warnings from a (Xe|Lua|pdf)LaTeX log (and from the
+Biber log), locating them as file:line.
 
-Le fichier courant est reconstitué en suivant les parenthèses ouvrantes et
-fermantes que TeX écrit dans le log à chaque ouverture/fermeture de fichier.
-Pour un log lisible, compiler avec max_print_line=10000 (pas de coupure des
-lignes à 79 caractères) et -file-line-error.
+The current file is rebuilt by following the opening and closing parentheses
+TeX writes to the log whenever it opens or closes a file. For a parsable log,
+compile with max_print_line=10000 (no wrapping of lines at 79 characters) and
+-file-line-error.
 """
 
 import os
@@ -12,16 +12,18 @@ import re
 import sys
 from collections import Counter
 
-# Racine du projet : les chemins du log sont relatifs au répertoire où TeX a
-# été lancé, qui doit être le répertoire courant lors de l'analyse.
+from .i18n import _
+
+# Project root: paths in the log are relative to the directory where TeX was
+# run, which must be the current directory during the analysis.
 PROJECT = os.path.abspath(os.getcwd())
-# Répertoire de compilation (-output-directory), s'il est hors des sources
+# Build directory (-output-directory), if outside the sources
 BUILD_DIR = None
 
 
 def set_root(root, build_dir=None):
-    """Fixe la racine du projet et le répertoire de compilation (et vide les
-    caches qui en dépendent)."""
+    """Set the project root and the build directory (and clear the caches
+    that depend on them)."""
     global PROJECT, BUILD_DIR
     PROJECT = os.path.abspath(root)
     BUILD_DIR = os.path.abspath(build_dir) if build_dir else None
@@ -29,7 +31,7 @@ def set_root(root, build_dir=None):
         BUILD_DIR = None
     _source_cache.clear()
 
-# --- Expressions régulières -------------------------------------------------
+# --- Regular expressions ----------------------------------------------------
 
 RE_FILE_LINE_ERROR = re.compile(r"^(\.?/?[^:\s]+\.\w+):(\d+): (.*)$")
 RE_BANG_ERROR = re.compile(r"^! (.*)$")
@@ -49,12 +51,12 @@ RE_BIBER_MISSING = re.compile(
 RE_BIBER_BIBLINE = re.compile(r"([\w./-]+\.bib)(?:_\d+\.utf8)?, line (\d+)")
 RE_UNKNOWN_KEY = re.compile(r"The key '([\w@-]+)/([^']+)' is unknown")
 RE_CONTINUATION = re.compile(r"^\([\w.@-]+\)\s+(.*)$")
-# Parties variables d'un message, ignorées pour regrouper les occurrences
+# Variable parts of a message, ignored when grouping occurrences
 RE_VARIABLE = re.compile(r"\s*on (?:page \d+|input line \d+)")
 
 
 def rel(path):
-    """Chemin relatif au projet si le fichier en fait partie, sinon tel quel."""
+    """Path relative to the project if the file belongs to it, else unchanged."""
     ap = os.path.abspath(path)
     if ap.startswith(PROJECT + os.sep):
         return os.path.relpath(ap, PROJECT)
@@ -72,12 +74,12 @@ class Entry:
         self.line = line
         self.msg = msg
         self.note = note
-        self.ctx = ctx  # extrait de la ligne source où TeX s'est arrêté
-        self.label = None  # libellé de regroupement imposé (voir collapse_pending)
+        self.ctx = ctx  # excerpt of the source line where TeX stopped
+        self.label = None  # forced grouping label (see collapse_pending)
 
     def loc(self):
         if not self.file:
-            return "(fichier inconnu)"
+            return _("(unknown file)")
         return f"{self.file}:{self.line}" if self.line else f"{self.file}"
 
     def key(self):
@@ -87,13 +89,13 @@ class Entry:
         return (self.kind, self.label or RE_VARIABLE.sub("", self.msg))
 
 
-# --- Lecture du log ----------------------------------------------------------
+# --- Reading the log ---------------------------------------------------------
 
 def read_log(path):
     with open(path, encoding="utf-8", errors="replace") as f:
         lines = f.read().split("\n")
-    # Si le log a été coupé à 79 colonnes (max_print_line par défaut),
-    # recoller les lignes coupées.
+    # If the log was wrapped at 79 columns (default max_print_line), join the
+    # wrapped lines back.
     if lines and max(len(l) for l in lines) <= 79:
         joined, buf = [], ""
         for l in lines:
@@ -108,7 +110,7 @@ def read_log(path):
 
 
 class FileStack:
-    """Pile des fichiers ouverts, reconstituée via les parenthèses du log."""
+    """Stack of open files, rebuilt from the parentheses in the log."""
 
     def __init__(self):
         self.stack = []
@@ -132,7 +134,7 @@ class FileStack:
             i += 1
 
     def current(self):
-        """Fichier du projet le plus interne (on ignore les fichiers système)."""
+        """Innermost project file (system files are ignored)."""
         for f in reversed(self.stack):
             if f is not None and in_project(f):
                 return rel(f)
@@ -151,7 +153,7 @@ def parse_tex_log(path):
     while i < n:
         line = lines[i]
 
-        # Erreur au format -file-line-error : ./fichier.tex:12: message
+        # Error in -file-line-error format: ./file.tex:12: message
         m = RE_FILE_LINE_ERROR.match(line)
         if m and os.path.isfile(m.group(1)):
             msg, ctx, j = collect_error(lines, i + 1, m.group(3))
@@ -159,7 +161,7 @@ def parse_tex_log(path):
             i = j
             continue
 
-        # Erreur au format classique : ! message ... l.12
+        # Error in the classic format: ! message ... l.12
         m = RE_BANG_ERROR.match(line)
         if m:
             msg, ctx, j, lnum = collect_error(lines, i + 1, m.group(1), want_lnum=True)
@@ -179,8 +181,8 @@ def parse_tex_log(path):
         if m:
             lm = RE_BOX_LINES.search(line)
             entries.append(Entry("box", stack.current(), int(lm.group(1)) if lm else None, line.strip()))
-            # Les lignes suivantes reproduisent le contenu de la boîte (texte
-            # avec parenthèses non équilibrées) jusqu'à la ligne " []" : on les saute.
+            # The following lines show the contents of the box (text with
+            # unbalanced parentheses) up to the " []" line: skip them.
             j = i + 1
             if "has occurred while \\output is active" not in line:
                 while j < n and lines[j].strip() != "[]" and lines[j].strip() != "":
@@ -206,8 +208,8 @@ HELP_PREFIXES = ("See the ", "Type  H", "Type X", "or enter new name", "Enter fi
 
 
 def collect_error(lines, i, first, want_lnum=False):
-    """Rassemble le message d'erreur jusqu'à la ligne de contexte l.NNN.
-    Renvoie (message, contexte, indice suivant[, numéro de ligne])."""
+    """Gather the error message up to the l.NNN context line.
+    Return (message, context, next index[, line number])."""
     text = first.strip()
     extra = []
     ctx = None
@@ -222,12 +224,12 @@ def collect_error(lines, i, first, want_lnum=False):
             before = m.group(2).strip()
             after = lines[i + 1].strip() if i + 1 < n else ""
             if before or after:
-                ctx = f"{before} ⟨ici⟩ {after}".strip()
+                ctx = (before + " " + _("⟨here⟩") + " " + after).strip()
             i += 2
             break
         mc = RE_CONTINUATION.match(l)
         if mc and not extra:
-            # Suite du message : "(LaTeX)        ignored."
+            # Continuation of the message: "(LaTeX)        ignored."
             text += " " + mc.group(1).strip()
         elif l.strip() and not l.strip().startswith(HELP_PREFIXES):
             if len(extra) < 3:
@@ -240,7 +242,7 @@ def collect_error(lines, i, first, want_lnum=False):
 
 
 def collect_warning(lines, i):
-    """Un warning se poursuit sur les lignes '(paquet)   ...' ou jusqu'à une ligne vide."""
+    """A warning goes on over '(package)   ...' lines or up to an empty line."""
     parts = [lines[i].strip()]
     j = i + 1
     n = len(lines)
@@ -276,14 +278,14 @@ def parse_biber_log(path):
     return entries
 
 
-# --- Fichiers .aux tronqués --------------------------------------------------
+# --- Truncated .aux files -----------------------------------------------------
 
 def corrupt_aux_files():
-    """Fichiers .aux tronqués (du projet et du répertoire de compilation),
-    typiquement par une compilation tuée avant d'avoir vidé ses tampons
-    d'écriture : accolades non équilibrées ou dernière ligne incomplète. Ils
-    font échouer la passe suivante dès \\begin{document} (« File ended while
-    scanning use of ... »). Chemins relatifs au projet, absolus hors du projet."""
+    """Truncated .aux files (in the project and in the build directory),
+    typically by a run killed before flushing its write buffers: unbalanced
+    braces or incomplete last line. They make the next pass fail at
+    \\begin{document} ("File ended while scanning use of ..."). Paths relative
+    to the project, absolute outside the project."""
     bad = []
     for top in [PROJECT] + ([BUILD_DIR] if BUILD_DIR and os.path.isdir(BUILD_DIR) else []):
         for root, dirs, names in os.walk(top):
@@ -305,7 +307,7 @@ def corrupt_aux_files():
     return sorted(set(bad))
 
 
-# --- Enrichissements ---------------------------------------------------------
+# --- Enrichment ----------------------------------------------------------------
 
 _source_cache = {}
 
@@ -333,7 +335,7 @@ def source_lines(f):
 
 
 def find_in_sources(pattern, only_line=None, max_hits=6):
-    """Cherche une regex dans les .tex du projet (lignes non commentées)."""
+    """Search a regex in the .tex files of the project (uncommented lines)."""
     hits = []
     rx = re.compile(pattern)
     for f in project_tex_files():
@@ -352,25 +354,26 @@ def enrich(entries):
         if km:
             pkg, key = km.groups()
             hits, total = find_in_sources(r"(?<![\w-])" + re.escape(key) + r"\s*=")
-            e.note = (f"option « {key} » inconnue du paquet {pkg} dans sa version installée"
-                      " (faute de frappe, ou option d'une ancienne version)")
+            e.note = _("option \"{key}\" unknown to package {pkg} in its installed version"
+                       " (typo, or option of an older version)", key=key, pkg=pkg)
             if hits:
-                e.note += " ; écrite en : " + ", ".join(hits) + (" …" if total > len(hits) else "")
+                e.note += _("; written at: {locations}",
+                            locations=", ".join(hits) + (" …" if total > len(hits) else ""))
             continue
         if "File ended while scanning" in e.msg or "Runaway argument" in e.msg:
             bad = corrupt_aux_files()
             if bad:
-                e.note = ("fichier(s) .aux tronqué(s) par une compilation interrompue : "
-                          + ", ".join(bad) + " — les supprimer (ou ktex clean) puis relancer")
+                e.note = _(".aux file(s) truncated by an interrupted run: {files}"
+                           " — remove them (or ktex clean) and rebuild", files=", ".join(bad))
                 if "\\begin{document}" in e.msg:
                     e.file, e.line = bad[0], None
                 continue
         m = RE_UNCLOSED_ENV.search(e.msg)
         if m:
             env, lnum = m.group(1), int(m.group(2))
-            hits, _ = find_in_sources(r"\\begin\{" + re.escape(env) + r"\}", only_line=lnum)
+            hits, _total = find_in_sources(r"\\begin\{" + re.escape(env) + r"\}", only_line=lnum)
             if hits:
-                e.note = "\\begin{%s} ouvert probablement en : %s" % (env, ", ".join(hits))
+                e.note = _("\\begin{{{env}}} probably opened at: {locations}", env=env, locations=", ".join(hits))
             continue
         bm = RE_BIBER_MISSING.search(e.msg)
         if bm:
@@ -380,22 +383,23 @@ def enrich(entries):
                 e.file, e.line = hits[0].rsplit(":", 1)
                 e.line = int(e.line)
                 if total > 1:
-                    e.note = "cité aussi en : " + ", ".join(hits[1:]) + (" …" if total > len(hits) else "")
+                    e.note = _("also cited at: {locations}",
+                               locations=", ".join(hits[1:]) + (" …" if total > len(hits) else ""))
             continue
         if "multiply defined" in e.msg or "multiply-defined" in e.msg:
             km = RE_REF_KEY.search(e.msg)
             if km:
-                hits, _ = find_in_sources(r"\\label\{" + re.escape(km.group(1)) + r"\}")
+                hits, _total = find_in_sources(r"\\label\{" + re.escape(km.group(1)) + r"\}")
                 if hits:
-                    e.note = "\\label défini en : " + ", ".join(hits)
+                    e.note = _("\\label defined at: {locations}", locations=", ".join(hits))
 
 
-# --- Sortie ------------------------------------------------------------------
+# --- Output --------------------------------------------------------------------
 
 SECTIONS = [
-    ("error", "ERREURS"),
-    ("warning", "AVERTISSEMENTS"),
-    ("box", "BOÎTES TROP PLEINES / TROP VIDES"),
+    ("error", "ERRORS"),
+    ("warning", "WARNINGS"),
+    ("box", "OVERFULL / UNDERFULL BOXES"),
 ]
 
 
@@ -404,8 +408,8 @@ RE_UNDEF_REF = re.compile(r"Reference .* undefined")
 
 
 def collapse_pending(entries):
-    """Si le log réclame une nouvelle passe (Biber ou LaTeX), les citations et
-    références indéfinies sont attendues : on les regroupe en une seule ligne."""
+    """If the log asks for another pass (Biber or LaTeX), undefined citations
+    and references are expected: fold them into a single line."""
     msgs = " ".join(e.msg for e in entries if e.kind == "warning")
     biber = "Please (re)run Biber" in msgs
     rerun = biber or "Rerun to get cross-references" in msgs or "Label(s) may have changed" in msgs
@@ -413,17 +417,17 @@ def collapse_pending(entries):
         if e.kind != "warning":
             continue
         if biber and RE_UNDEF_CITE.search(e.msg):
-            e.label = ("Citations indéfinies : Biber n'a pas encore été relancé"
-                       " (normal si la compilation s'est arrêtée avant)")
+            e.label = _("Undefined citations: Biber has not been rerun yet"
+                        " (expected if the build stopped before)")
         elif rerun and RE_UNDEF_REF.search(e.msg):
-            e.label = ("Références indéfinies : une passe LaTeX supplémentaire est nécessaire"
-                       " (normal si la compilation s'est arrêtée avant)")
+            e.label = _("Undefined references: another LaTeX pass is needed"
+                        " (expected if the build stopped before)")
         if e.label:
             e.msg = e.label
 
 
 def group(entries):
-    """Regroupe les occurrences d'un même message : [(entrée, [entrées])]."""
+    """Group the occurrences of the same message: [[entries]]."""
     groups = {}
     for e in entries:
         groups.setdefault(e.group_key(), []).append(e)
@@ -431,12 +435,13 @@ def group(entries):
 
 
 def locations(group):
-    """« fichier:12, 15, 20 ; autre.tex:3 », lignes regroupées par fichier."""
+    """"file:12, 15, 20 ; other.tex:3", lines grouped by file."""
     by_file = {}
+    unknown = _("(unknown file)")
     for e in group:
-        by_file.setdefault(e.file or "(fichier inconnu)", [])
-        if e.line and e.line not in by_file[e.file or "(fichier inconnu)"]:
-            by_file[e.file or "(fichier inconnu)"].append(e.line)
+        by_file.setdefault(e.file or unknown, [])
+        if e.line and e.line not in by_file[e.file or unknown]:
+            by_file[e.file or unknown].append(e.line)
     out = []
     for f, ls in by_file.items():
         shown = ", ".join(str(l) for l in ls[:12]) + (", …" if len(ls) > 12 else "")
@@ -458,8 +463,8 @@ def render(entries, color, show_boxes, only_errors=False):
         if not groups:
             continue
         nb = sum(len(g) for g in groups)
-        detail = f"{nb}, {len(groups)} distinct(e)s" if nb != len(groups) else f"{nb}"
-        out.append(f"{C[kind]}===== {title} ({detail}) ====={C['end']}")
+        detail = _("{n}, {k} distinct", n=nb, k=len(groups)) if nb != len(groups) else f"{nb}"
+        out.append(f"{C[kind]}===== {_(title)} ({detail}) ====={C['end']}")
         for g in groups:
             e = g[0]
             if len(g) == 1:
@@ -473,25 +478,25 @@ def render(entries, color, show_boxes, only_errors=False):
             if e.note:
                 out.append(f"    {C['dim']}↳ {e.note}{C['end']}")
         out.append("")
-    summary = (f"Bilan : {counts['error']} erreur(s), {counts['warning']} avertissement(s), "
-               f"{counts['box']} boîte(s) mal remplie(s)")
+    summary = _("Summary: {errors} error(s), {warnings} warning(s), {boxes} bad box(es)",
+                errors=counts["error"], warnings=counts["warning"], boxes=counts["box"])
     if only_errors and (counts["warning"] or counts["box"]):
-        summary += (" — avertissements et boîtes non affichés : corriger d'abord les erreurs"
-                    " (les références/citations indéfinies en découlent souvent)")
+        summary += _(" — warnings and boxes not shown: fix the errors first"
+                     " (undefined references/citations often follow from them)")
     elif not show_boxes and counts["box"]:
-        summary += " (non détaillées)"
+        summary += _(" (not detailed)")
     out.append(summary)
     return "\n".join(out)
 
 
 def analyze(job):
-    """Entrées dédoublonnées des logs JOB.log et JOB.blg ; JOB peut être un
-    chemin (répertoire de compilation), le répertoire courant doit être celui
-    où TeX a été lancé."""
+    """Deduplicated entries of the JOB.log and JOB.blg logs; JOB may be a
+    path (build directory), the current directory must be the one where TeX
+    was run."""
     entries = parse_tex_log(job + ".log") + parse_biber_log(job + ".blg")
     enrich(entries)
     collapse_pending(entries)
-    # Dédoublonnage en conservant l'ordre
+    # Deduplicate, keeping the order
     seen, uniq = set(), []
     for e in entries:
         if e.key() not in seen:
@@ -501,17 +506,17 @@ def analyze(job):
 
 
 def report(job, out_path="output.errors.log", color=False, show_boxes=True, stream=None):
-    """Écrit le rapport complet dans out_path et un résumé sur stream.
-    Renvoie 1 s'il y a des erreurs, 0 sinon, 2 si le log est introuvable."""
+    """Write the full report to out_path and a summary to stream.
+    Return 1 if there are errors, else 0, and 2 if the log is missing."""
     stream = stream or sys.stdout
     log = job + ".log"
     if not os.path.isfile(log):
-        print(f"ktex: {log} introuvable", file=sys.stderr)
+        print("ktex: " + _("{path} not found", path=log), file=sys.stderr)
         return 2
     uniq = analyze(job)
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(render(uniq, color=False, show_boxes=True) + "\n")
     has_errors = any(e.kind == "error" for e in uniq)
     print(render(uniq, color=color, show_boxes=show_boxes, only_errors=has_errors), file=stream)
-    print(f"Rapport complet : {out_path}", file=stream)
+    print(_("Full report: {path}", path=out_path), file=stream)
     return 1 if has_errors else 0

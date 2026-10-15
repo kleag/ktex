@@ -1,0 +1,28 @@
+# Changelog
+
+Notable changes to ktex are listed here. The project follows
+[semantic versioning](https://semver.org/).
+
+## [Unreleased]
+
+- `ktex init`: create a `ktex.toml` for the LaTeX project of the current
+  directory, with one target per main file.
+- The raw output of LaTeX and Biber is hidden by default (it is still in the
+  logs); `-v`/`--verbose` or `verbose = true` shows it. The `quiet` option is
+  replaced by `verbose`. On failure, the path of the raw log is printed.
+
+## [0.1.0] - 2026-10-15
+
+First public release.
+
+- Full build: LaTeX passes (`pdflatex`, `xelatex`, `lualatex`), Biber or
+  BibTeX, automatic number of passes.
+- Out-of-source build and atomic replacement of the PDF.
+- Report of errors located as `file:line`, with hints.
+- Subcommands `build`, `check`, `clean`, `corrupt-aux`, `targets`, and
+  configuration through `ktex.toml`.
+- Messages, help and report in English, or in French depending on the locale
+  (`KTEX_LANG` to override).
+
+[Unreleased]: https://github.com/kleag/ktex/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/kleag/ktex/releases/tag/v0.1.0

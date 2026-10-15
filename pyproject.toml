@@ -4,22 +4,71 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ktex"
-version = "0.1.0"
-description = "Compilation LaTeX complète (passes, Biber/BibTeX, PDF atomique) et rapport d'erreurs localisées par fichier:ligne"
+dynamic = ["version"]
+description = "Full LaTeX build (passes, Biber/BibTeX, atomic PDF) and report of errors located as file:line"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Gaël de Chalendar" }]
+keywords = ["latex", "pdflatex", "xelatex", "lualatex", "biber", "bibtex", "build", "log"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Natural Language :: French",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Text Processing :: Markup :: LaTeX",
+]
 dependencies = []
 
-[project.optional-dependencies]
-test = ["pytest>=7"]
+[project.urls]
+Homepage = "https://github.com/kleag/ktex"
+Documentation = "https://kleag.github.io/ktex/"
+Repository = "https://github.com/kleag/ktex"
+Issues = "https://github.com/kleag/ktex/issues"
+Changelog = "https://github.com/kleag/ktex/blob/main/CHANGELOG.md"
 
 [project.scripts]
 ktex = "ktex.cli:main"
 
+[dependency-groups]
+test = ["pytest>=8"]
+docs = ["zensical>=0.0.70"]
+dev = [{ include-group = "test" }, { include-group = "docs" }, "bumpver>=2024.1130"]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.bumpver]
+current_version = "v0.1.0"
+version_pattern = "vMAJOR.MINOR.PATCH"
+commit_message = "Version {new_version}"
+tag_message = "Version {new_version}"
+tag_scope = "default"
+commit = true
+tag = true
+push = false
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = ['current_version = "{version}"']
+"src/ktex/__init__.py" = ['__version__ = "{pep440_version}"']
+
+[tool.hatch.version]
+path = "src/ktex/__init__.py"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/ktex"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/ktex", "tests", "docs", "zensical.toml", "zensical.fr.toml", "README.md", "README.fr.md", "CHANGELOG.md", "LICENSE"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

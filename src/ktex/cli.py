@@ -1,4 +1,4 @@
-"""Point d'entrée en ligne de commande : ktex build|check|clean|corrupt-aux|targets."""
+"""Command-line entry point: ktex build|check|clean|corrupt-aux|targets|init."""
 
 import argparse
 import os
@@ -8,15 +8,17 @@ from . import __version__, logcheck
 from .build import build
 from .clean import clean
 from .config import ConfigError, find_config, load_targets, resolve_target
+from .i18n import _
+from .init import init
 
 
 def _add_target_args(p):
     p.add_argument("target", nargs="?",
-                   help="nom de cible du ktex.toml ou fichier .tex (défaut : première cible, "
-                        "sinon l'unique .tex principal du répertoire)")
+                   help=_("target name from ktex.toml, or .tex file (default: first target, "
+                          "else the only main .tex file of the directory)"))
     p.add_argument("-d", "--build-dir",
-                   help="répertoire de compilation (défaut : auto, répertoire temporaire hors des "
-                        "sources ; « . » pour compiler sur place)")
+                   help=_("build directory (default: auto, a temporary directory outside the "
+                          "sources; \".\" to build in place)"))
 
 
 def _color(args):
@@ -28,60 +30,66 @@ def _color(args):
 def main(argv=None):
     ap = argparse.ArgumentParser(
         prog="ktex",
-        description="Compilation LaTeX complète (passes, bibliographie, PDF atomique) "
-                    "et rapport d'erreurs localisées par fichier:ligne.")
+        description=_("Full LaTeX build (passes, bibliography, atomic PDF) "
+                      "and report of errors located as file:line."))
     ap.add_argument("--version", action="version", version=f"ktex {__version__}")
     common = argparse.ArgumentParser(add_help=False)
     color = common.add_mutually_exclusive_group()
     color.add_argument("--color", dest="color", action="store_true", default=None,
-                       help="forcer la couleur (défaut : si la sortie est un terminal)")
-    color.add_argument("--no-color", dest="color", action="store_false")
+                       help=_("force colors (default: if the output is a terminal)"))
+    color.add_argument("--no-color", dest="color", action="store_false", help=_("disable colors"))
     sub = ap.add_subparsers(dest="cmd")
 
-    b = sub.add_parser("build", parents=[common], help="compiler (commande par défaut)")
+    b = sub.add_parser("build", parents=[common], help=_("build (default command)"))
     _add_target_args(b)
-    b.add_argument("-e", "--engine", choices=["pdflatex", "xelatex", "lualatex", "auto"])
-    b.add_argument("-b", "--bib", choices=["biber", "bibtex", "none", "auto"])
-    b.add_argument("-n", "--passes", help="nombre fixe de passes LaTeX, ou « auto »")
-    b.add_argument("--max-passes", type=int)
-    b.add_argument("-j", "--jobname", help="nom du job (défaut : <main>, ou <main>-tmp sur place)")
-    b.add_argument("-o", "--output", help="PDF final (défaut : <main>.pdf)")
-    b.add_argument("--log-prefix", help="préfixe des logs (défaut : output)")
-    b.add_argument("-q", "--quiet", action="store_true", default=None,
-                   help="ne pas afficher la sortie de LaTeX/Biber (toujours dans les logs)")
+    b.add_argument("-e", "--engine", choices=["pdflatex", "xelatex", "lualatex", "auto"], help=_("LaTeX engine"))
+    b.add_argument("-b", "--bib", choices=["biber", "bibtex", "none", "auto"], help=_("bibliography backend"))
+    b.add_argument("-n", "--passes", help=_("fixed number of LaTeX passes, or \"auto\""))
+    b.add_argument("--max-passes", type=int, help=_("maximum number of passes in auto mode (default: 5)"))
+    b.add_argument("-j", "--jobname", help=_("job name (default: <main>, or <main>-tmp in place)"))
+    b.add_argument("-o", "--output", help=_("final PDF (default: <main>.pdf)"))
+    b.add_argument("--log-prefix", help=_("prefix of the logs (default: output)"))
+    verbosity = b.add_mutually_exclusive_group()
+    verbosity.add_argument("-v", "--verbose", dest="verbose", action="store_true", default=None,
+                           help=_("show the raw output of LaTeX/Biber (always in the logs)"))
+    verbosity.add_argument("-q", "--quiet", dest="verbose", action="store_false",
+                           help=_("hide the raw output of LaTeX/Biber (default)"))
     b.add_argument("--boxes", dest="show_boxes", action="store_true", default=None,
-                   help="détailler aussi les boîtes mal remplies dans le terminal")
+                   help=_("also detail bad boxes in the terminal"))
 
-    c = sub.add_parser("check", parents=[common], help="analyser le log d'une compilation déjà faite")
+    c = sub.add_parser("check", parents=[common], help=_("analyze the log of a previous build"))
     _add_target_args(c)
-    c.add_argument("-j", "--jobname", help="job dont lire JOB.log / JOB.blg")
-    c.add_argument("-o", "--report", help="fichier rapport (défaut : <log_prefix>.errors.log)")
-    c.add_argument("--boxes", action="store_true", help="détailler les boîtes dans le terminal")
+    c.add_argument("-j", "--jobname", help=_("job whose JOB.log / JOB.blg to read"))
+    c.add_argument("-o", "--report", help=_("report file (default: <log_prefix>.errors.log)"))
+    c.add_argument("--boxes", action="store_true", help=_("detail bad boxes in the terminal"))
 
-    k = sub.add_parser("clean", help="supprimer les fichiers auxiliaires")
+    k = sub.add_parser("clean", help=_("remove auxiliary files"))
     _add_target_args(k)
-    k.add_argument("--dry-run", action="store_true", help="lister sans supprimer")
-    k.add_argument("--keep-logs", action="store_true", help="garder <log_prefix>.errors.log et les logs sur place")
+    k.add_argument("--dry-run", action="store_true", help=_("list without removing"))
+    k.add_argument("--keep-logs", action="store_true", help=_("keep <log_prefix>.errors.log and in-place logs"))
 
-    a = sub.add_parser("corrupt-aux", help="lister les .aux tronqués par une compilation interrompue")
+    a = sub.add_parser("corrupt-aux", help=_("list .aux files truncated by an interrupted run"))
     _add_target_args(a)
 
-    sub.add_parser("targets", help="lister les cibles du ktex.toml")
+    sub.add_parser("targets", help=_("list the targets of ktex.toml"))
+    sub.add_parser("init", help=_("create a ktex.toml for the LaTeX project of the current directory"))
 
     argv = sys.argv[1:] if argv is None else list(argv)
-    # Sans sous-commande : build (ktex, ktex <cible>, ktex these.tex -n 2…)
+    # Without a subcommand: build (ktex, ktex <target>, ktex thesis.tex -n 2…)
     if not argv or (argv[0] not in sub.choices and argv[0] not in ("-h", "--help", "--version")):
         argv = ["build", *argv]
     args = ap.parse_args(argv)
 
     try:
+        if args.cmd == "init":
+            return init(os.getcwd())
         if args.cmd == "targets":
             cfg = find_config(os.getcwd())
             if not cfg:
-                print("pas de ktex.toml ici ni dans les répertoires parents")
+                print(_("no ktex.toml here or in the parent directories"))
                 return 1
             for i, (name, t) in enumerate(load_targets(cfg).items()):
-                print(f"{name}{' (défaut)' if i == 0 else ''}: {os.path.join(os.path.relpath(t.root), t.main)}"
+                print(f"{name}{_(' (default)') if i == 0 else ''}: {os.path.join(os.path.relpath(t.root), t.main)}"
                       f" → {t.pdf}")
             return 0
 
@@ -89,12 +97,12 @@ def main(argv=None):
         if args.cmd == "build":
             overrides = {k: getattr(args, k) for k in
                          ("engine", "bib", "passes", "max_passes", "jobname", "output",
-                          "log_prefix", "quiet", "show_boxes")}
+                          "log_prefix", "verbose", "show_boxes")}
         elif args.cmd == "check":
             overrides = {"jobname": args.jobname}
         overrides["build_dir"] = getattr(args, "build_dir", None)
-        # Chemins donnés en ligne de commande : relatifs au répertoire courant
-        # (ceux du ktex.toml sont relatifs au fichier de configuration)
+        # Paths given on the command line are relative to the current directory
+        # (those of ktex.toml are relative to the configuration file)
         for k in ("build_dir", "output", "log_prefix"):
             if overrides.get(k):
                 overrides[k] = os.path.abspath(os.path.expanduser(overrides[k]))

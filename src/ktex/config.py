@@ -1,20 +1,20 @@
-"""Configuration : options en ligne de commande, fichier ktex.toml et
-détection automatique (moteur, bibliographie).
+"""Configuration: command-line options, ktex.toml file and automatic
+detection (engine, bibliography).
 
-Exemple de ktex.toml (placé à la racine du document) :
+Example ktex.toml (at the root of the document):
 
-    # Options communes à toutes les cibles
+    # Options shared by all targets
     engine = "xelatex"      # pdflatex | xelatex | lualatex | auto
     bib = "biber"           # biber | bibtex | none | auto
-    passes = 3              # nombre fixe de passes LaTeX, ou "auto"
+    passes = 3              # fixed number of LaTeX passes, or "auto"
 
-    [targets.these]         # la première cible est celle par défaut
-    main = "these.tex"
+    [targets.thesis]        # the first target is the default one
+    main = "thesis.tex"
 
-    [targets.soutenance]
-    main = "soutenance.tex"
+    [targets.slides]
+    main = "slides.tex"
     bib = "none"
-    log_prefix = "output_soutenance"
+    log_prefix = "output_slides"
 """
 
 import hashlib
@@ -25,6 +25,8 @@ import tempfile
 import tomllib
 from dataclasses import dataclass, field, fields
 
+from .i18n import _
+
 CONFIG_NAME = "ktex.toml"
 ENGINES = ("pdflatex", "xelatex", "lualatex")
 BIB_BACKENDS = ("biber", "bibtex")
@@ -32,19 +34,19 @@ BIB_BACKENDS = ("biber", "bibtex")
 
 @dataclass
 class Target:
-    main: str                     # fichier .tex principal (relatif à root)
-    root: str = "."               # répertoire de compilation
+    main: str                     # main .tex file (relative to root)
+    root: str = "."               # source directory, where LaTeX is run
     engine: str = "auto"
     bib: str = "auto"
-    passes: object = "auto"       # int ou "auto"
-    max_passes: int = 5           # plafond en mode auto
-    build_dir: str = "auto"       # auto : répertoire temporaire hors des sources ; "." : sur place
-    jobname: str = ""             # défaut : <main> (<main>-tmp si build_dir = ".")
-    output: str = ""              # défaut : <main>.pdf
+    passes: object = "auto"       # int or "auto"
+    max_passes: int = 5           # upper bound in auto mode
+    build_dir: str = "auto"       # auto: temporary directory outside the sources; ".": in place
+    jobname: str = ""             # default: <main> (<main>-tmp if build_dir = ".")
+    output: str = ""              # default: <main>.pdf
     log_prefix: str = "output"    # output.1.log, output.bib.log (build_dir), output.errors.log (root)
-    quiet: bool = False           # ne pas recopier la sortie des outils sur le terminal
+    verbose: bool = False         # copy the raw output of the tools to the terminal (always in the logs)
     engine_args: list = field(default_factory=list)
-    show_boxes: bool = False      # boîtes détaillées dans le résumé terminal
+    show_boxes: bool = False      # detail bad boxes in the terminal summary
 
     @property
     def stem(self):
@@ -56,17 +58,17 @@ class Target:
 
     @property
     def build_path(self):
-        """Répertoire absolu où sont écrits les fichiers produits par TeX."""
+        """Absolute directory where the files produced by TeX are written."""
         if self.build_dir == "auto":
-            # Un répertoire par document (le hachage distingue deux documents de même nom)
+            # One directory per document (the hash tells apart two documents with the same name)
             h = hashlib.sha1(os.path.abspath(os.path.join(self.root, self.main)).encode()).hexdigest()[:8]
             return os.path.join(tempfile.gettempdir(), f"ktex-{self.stem}-{h}")
         return os.path.abspath(os.path.join(self.root, os.path.expanduser(self.build_dir)))
 
     @property
     def job(self):
-        # Sur place, un nom de job distinct du PDF final permet le renommage
-        # atomique. Pas de point : biber prendrait la suite pour une extension.
+        # In place, a job name distinct from the final PDF allows the atomic
+        # rename. No dot: biber would take what follows for an extension.
         if self.jobname:
             return self.jobname
         return self.stem if self.out_of_source else f"{self.stem}-tmp"
@@ -84,7 +86,7 @@ class ConfigError(Exception):
 
 
 def find_config(start):
-    """Cherche ktex.toml dans start puis ses parents."""
+    """Look for ktex.toml in start, then in its parents."""
     d = os.path.abspath(start)
     while True:
         p = os.path.join(d, CONFIG_NAME)
@@ -100,14 +102,14 @@ def _make_target(values, where):
     known = {f.name for f in fields(Target)}
     unknown = set(values) - known
     if unknown:
-        raise ConfigError(f"{where} : option(s) inconnue(s) : {', '.join(sorted(unknown))}")
+        raise ConfigError(_("{where}: unknown option(s): {options}", where=where, options=", ".join(sorted(unknown))))
     if "main" not in values:
-        raise ConfigError(f"{where} : « main » manquant")
+        raise ConfigError(_("{where}: \"main\" is missing", where=where))
     return Target(**values)
 
 
 def load_targets(path):
-    """{nom: Target} dans l'ordre du fichier (racine = répertoire du fichier)."""
+    """{name: Target} in file order (root = directory of the file)."""
     with open(path, "rb") as f:
         data = tomllib.load(f)
     targets_data = data.pop("targets", {})
@@ -125,17 +127,17 @@ def load_targets(path):
 
 
 def resolve_target(spec, overrides):
-    """Cible désignée par spec : nom de cible du ktex.toml, fichier .tex,
-    ou None (cible par défaut du ktex.toml, sinon unique .tex principal
-    du répertoire courant). overrides : options de la ligne de commande."""
+    """Target designated by spec: target name from ktex.toml, .tex file, or
+    None (default target of ktex.toml, else the only main .tex file of the
+    current directory). overrides: command-line options."""
     target = None
     if spec and (spec.endswith(".tex") or os.path.isfile(spec)):
         main = os.path.abspath(spec)
         if not os.path.isfile(main):
-            raise ConfigError(f"{spec} introuvable")
+            raise ConfigError(_("{path} not found", path=spec))
         cfg = find_config(os.path.dirname(main))
         if cfg:
-            # Reprendre les options d'une cible qui compile ce fichier, ou les options communes
+            # Use the options of a target that builds this file, or the shared options
             for t in load_targets(cfg).values():
                 if os.path.abspath(os.path.join(t.root, t.main)) == main:
                     target = t
@@ -152,22 +154,21 @@ def resolve_target(spec, overrides):
         if cfg:
             targets = load_targets(cfg)
             if not targets:
-                raise ConfigError(f"{cfg} : aucune cible définie")
+                raise ConfigError(_("{config}: no target defined", config=cfg))
             if spec:
                 if spec not in targets:
-                    raise ConfigError(f"cible « {spec} » inconnue ; cibles : {', '.join(targets)}")
+                    raise ConfigError(_("unknown target \"{name}\"; targets: {targets}", name=spec, targets=", ".join(targets)))
                 target = targets[spec]
             else:
                 target = next(iter(targets.values()))
         elif spec:
-            raise ConfigError(f"« {spec} » n'est ni un fichier .tex ni une cible (pas de {CONFIG_NAME})")
+            raise ConfigError(_("\"{spec}\" is neither a .tex file nor a target (no {config})", spec=spec, config=CONFIG_NAME))
         else:
             mains = find_main_files(os.getcwd())
             if len(mains) != 1:
-                raise ConfigError(
-                    "impossible de deviner le fichier principal ("
-                    + (", ".join(mains) if mains else "aucun \\documentclass trouvé")
-                    + f") : le donner en argument ou créer un {CONFIG_NAME}")
+                raise ConfigError(_(
+                    "cannot guess the main file ({found}): give it as an argument or create a {config}",
+                    found=", ".join(mains) if mains else _("no \\documentclass found"), config=CONFIG_NAME))
             target = Target(main=mains[0], root=os.getcwd())
     for k, v in overrides.items():
         if v is not None:
@@ -176,11 +177,11 @@ def resolve_target(spec, overrides):
         try:
             target.passes = int(target.passes)
         except ValueError:
-            raise ConfigError(f"passes : entier ou « auto » attendu, pas « {target.passes} »")
+            raise ConfigError(_("passes: integer or \"auto\" expected, not \"{value}\"", value=target.passes))
     if target.engine not in ENGINES + ("auto",):
-        raise ConfigError(f"moteur inconnu « {target.engine} » ({', '.join(ENGINES)}, auto)")
+        raise ConfigError(_("unknown engine \"{engine}\" ({choices}, auto)", engine=target.engine, choices=", ".join(ENGINES)))
     if target.bib not in BIB_BACKENDS + ("none", "auto"):
-        raise ConfigError(f"bibliographie inconnue « {target.bib} » ({', '.join(BIB_BACKENDS)}, none, auto)")
+        raise ConfigError(_("unknown bibliography backend \"{bib}\" ({choices}, none, auto)", bib=target.bib, choices=", ".join(BIB_BACKENDS)))
     return target
 
 
@@ -206,9 +207,9 @@ RE_UNICODE_PKG = re.compile(
 
 
 def detect_engine(main_path):
-    """Moteur : commentaire magique « % !TEX program = xelatex », sinon
-    xelatex si le préambule ou un .sty/.cls local (thème beamer, classe
-    maison…) charge fontspec/polyglossia/unicode-math, sinon pdflatex."""
+    """Engine: magic comment "% !TEX program = xelatex", else xelatex if the
+    preamble or a local .sty/.cls (beamer theme, custom class…) loads
+    fontspec/polyglossia/unicode-math, else pdflatex."""
     with open(main_path, encoding="utf-8", errors="replace") as f:
         head = f.read(50000)
     m = RE_MAGIC_PROGRAM.search(head)
@@ -229,8 +230,8 @@ def detect_engine(main_path):
 
 
 def detect_bib(jobpath):
-    """Après une passe : biber si biblatex a écrit un .bcf, bibtex si le .aux
-    contient \\bibdata, sinon rien. jobpath : chemin du job sans extension."""
+    """After a pass: biber if biblatex wrote a .bcf, bibtex if the .aux
+    contains \\bibdata, else none. jobpath: path of the job without extension."""
     if os.path.isfile(jobpath + ".bcf"):
         return "biber"
     try:

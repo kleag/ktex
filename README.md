@@ -1,107 +1,121 @@
 # ktex
 
-*Kleag's TeX tool.*
+[![PyPI](https://img.shields.io/pypi/v/ktex)](https://pypi.org/project/ktex/)
+[![Python](https://img.shields.io/pypi/pyversions/ktex)](https://pypi.org/project/ktex/)
+[![CI](https://github.com/kleag/ktex/actions/workflows/ci.yml/badge.svg)](https://github.com/kleag/ktex/actions/workflows/ci.yml)
+[![Documentation](https://img.shields.io/badge/docs-kleag.github.io%2Fktex-blue)](https://kleag.github.io/ktex/)
 
-Compilation LaTeX complète, en une commande, pour n'importe quel document :
+*Kleag's TeX tool.* — [Français](https://github.com/kleag/ktex/blob/main/README.fr.md)
 
-- passes LaTeX (`pdflatex`, `xelatex` ou `lualatex`) et bibliographie (Biber ou BibTeX),
-  détectés automatiquement ou fixés par configuration ;
-- compilation **hors des sources**, dans un répertoire temporaire propre au
-  document (`$TMPDIR/ktex-<doc>-<hash>`) : aucun `.aux`, `.log`, `.bbl`…
-  dans l'arborescence, y compris ceux des chapitres `\include`s ;
-- **remplacement atomique** du PDF final : la visionneuse ne voit jamais de PDF
-  vide ou partiel, et un échec laisse l'ancien PDF en place ;
-- suppression préalable des `.aux` **tronqués** par une compilation interrompue
-  (cause de l'erreur « File ended while scanning use of… » dès `\begin{document}`) ;
-- à la fin (succès ou échec), **rapport d'erreurs et d'avertissements localisés
-  par `fichier:ligne`** — y compris dans les fichiers `\input`/`\include` — avec
-  regroupement des occurrences et indices : environnement non fermé, `\label`
-  dupliqué, clé de citation absente (et où elle est citée), option de paquet
-  inconnue, citations indéfinies simplement en attente de Biber…
+A complete LaTeX build, in one command, for any document:
 
-Aucune dépendance hors bibliothèque standard (Python ≥ 3.11).
+- LaTeX passes (`pdflatex`, `xelatex` or `lualatex`) and bibliography (Biber
+  or BibTeX), detected automatically or set in the configuration;
+- build **outside the sources**, in a temporary directory specific to the
+  document (`$TMPDIR/ktex-<doc>-<hash>`): no `.aux`, `.log`, `.bbl`… in your
+  tree, including those of `\include`d chapters;
+- **atomic replacement** of the final PDF: the viewer never sees an empty or
+  partial PDF, and a failed build leaves the previous PDF in place;
+- prior removal of `.aux` files **truncated** by an interrupted run (the cause
+  of "File ended while scanning use of…" right at `\begin{document}`);
+- at the end (success or failure), a **report of errors and warnings located
+  as `file:line`** — including in `\input`/`\include`d files — with grouped
+  occurrences and hints: unclosed environment, duplicate `\label`, citation key
+  missing (and where it is cited), unknown package option, undefined citations
+  merely waiting for Biber…
+
+Python ≥ 3.11. Messages in English, or in French when the locale is French (or
+with `KTEX_LANG=fr`).
 
 ## Installation
 
 ```sh
-uv tool install --editable /chemin/vers/ktex   # ou : pipx install /chemin/vers/ktex
+uv tool install ktex     # or: pipx install ktex
+uvx ktex                 # without installing
 ```
 
-## Utilisation
+Full documentation: <https://kleag.github.io/ktex/>.
+
+## Usage
 
 ```sh
-ktex                     # compile la cible par défaut (ou l'unique .tex principal du répertoire)
-ktex these.tex           # compile un fichier donné
-ktex soutenance          # compile la cible « soutenance » du ktex.toml
-ktex build -e lualatex -b bibtex -n 2 these.tex   # options explicites
-ktex -q                  # sans la sortie de LaTeX/Biber (toujours dans les logs)
-ktex -d .                # compilation sur place, à l'ancienne
-ktex check               # ré-analyse le log de la dernière compilation
-ktex clean [--dry-run]   # supprime les fichiers auxiliaires
-ktex corrupt-aux         # liste les .aux tronqués
-ktex targets             # liste les cibles configurées
+ktex                     # build the default target (or the only main .tex file of the directory)
+ktex thesis.tex          # build a given file
+ktex slides              # build the "slides" target of ktex.toml
+ktex build -e lualatex -b bibtex -n 2 thesis.tex   # explicit options
+ktex -v                  # also show the raw output of LaTeX/Biber (always in the logs)
+ktex -d .                # build in place, the old way
+ktex check               # re-analyze the log of the last build
+ktex clean [--dry-run]   # remove auxiliary files
+ktex corrupt-aux         # list truncated .aux files
+ktex targets             # list the configured targets
+ktex init                # create a ktex.toml for the project of the current directory
 ```
 
-Fichiers produits (préfixe `output` par défaut, option `log_prefix`) : dans le
-répertoire de compilation, `output.1.log`, `output.2.log`… (sortie de chaque
-passe) et `output.bib.log` ; à côté des sources, le PDF et `output.errors.log`,
-le rapport complet. Le terminal n'affiche que les erreurs
-s'il y en a (avertissements et références indéfinies en découlent souvent),
-et ne détaille pas les boîtes mal remplies sauf avec `--boxes`.
+Files produced (prefix `output` by default, option `log_prefix`): in the build
+directory, `output.1.log`, `output.2.log`… (output of each pass) and
+`output.bib.log`; next to the sources, the PDF and `output.errors.log`, the
+full report. When there are errors, the terminal only shows the errors
+(warnings and undefined references often follow from them), and it only
+details bad boxes with `--boxes`.
 
-## Détection automatique
+## Automatic detection
 
-- **Moteur** : commentaire magique `% !TEX program = xelatex` dans le fichier
-  principal ; sinon `xelatex` si le préambule charge `fontspec`, `polyglossia`
-  ou `unicode-math` ; sinon `pdflatex`.
-- **Bibliographie** (après la première passe) : `biber` si biblatex a écrit un
-  `.bcf`, `bibtex` si le `.aux` contient `\bibdata`, sinon aucune.
-- **Passes** : après la bibliographie, une passe (deux pour BibTeX), puis tant
-  que le log réclame une nouvelle passe (`Rerun to get…`, `Label(s) may have
-  changed`, `Please rerun LaTeX`…), dans la limite de `max_passes` (5).
+- **Engine**: magic comment `% !TEX program = xelatex` in the main file;
+  otherwise `xelatex` if the preamble loads `fontspec`, `polyglossia` or
+  `unicode-math`; otherwise `pdflatex`.
+- **Bibliography** (after the first pass): `biber` if biblatex wrote a `.bcf`,
+  `bibtex` if the `.aux` contains `\bibdata`, otherwise none.
+- **Passes**: after the bibliography, one pass (two for BibTeX), then as long
+  as the log asks for another pass (`Rerun to get…`, `Label(s) may have
+  changed`, `Please rerun LaTeX`…), up to `max_passes` (5).
 
-## Configuration : `ktex.toml`
+## Configuration: `ktex.toml`
 
-Cherché dans le répertoire courant puis ses parents ; les chemins sont
-relatifs au fichier de configuration.
+Looked for in the current directory, then in its parents; paths are relative
+to the configuration file.
 
 ```toml
-# Options communes à toutes les cibles
+# Options shared by all targets
 engine = "xelatex"        # pdflatex | xelatex | lualatex | auto
 bib = "biber"             # biber | bibtex | none | auto
-passes = 3                # nombre fixe de passes LaTeX, ou "auto"
+passes = 3                # fixed number of LaTeX passes, or "auto"
 
-[targets.these]           # la première cible est la cible par défaut
-main = "these.tex"
+[targets.thesis]          # the first target is the default one
+main = "thesis.tex"
 
-[targets.soutenance]
-main = "soutenance.tex"
+[targets.slides]
+main = "slides.tex"
 bib = "none"
-log_prefix = "output_soutenance"
+log_prefix = "output_slides"
 ```
 
-Options d'une cible : `main` (obligatoire), `root`, `engine`, `bib`, `passes`,
-`max_passes`, `build_dir` (`"auto"` par défaut : répertoire temporaire ;
-`"."` : sur place ; ou un chemin), `jobname` (défaut `<main>`, `<main>-tmp`
-sur place), `output` (défaut `<main>.pdf`), `log_prefix`, `quiet`,
-`engine_args` (liste d'options supplémentaires du moteur, par exemple
-`["-synctex=1", "-shell-escape"]`), `show_boxes`.
+Target options: `main` (required), `root`, `engine`, `bib`, `passes`,
+`max_passes`, `build_dir` (`"auto"` by default: temporary directory; `"."`: in
+place; or a path), `jobname` (default `<main>`, `<main>-tmp` in place),
+`output` (default `<main>.pdf`), `log_prefix`, `verbose`, `engine_args` (list of
+extra engine options, for example `["-synctex=1", "-shell-escape"]`),
+`show_boxes`.
 
 ## Notes
 
-- LaTeX est lancé depuis le répertoire des sources avec
-  `-output-directory=<build_dir>`, `max_print_line=10000` (lignes du log non
-  coupées), `-file-line-error`, `-interaction=nonstopmode` et `-recorder`.
-  Les sous-répertoires des sources contenant des `.tex` sont recréés dans le
-  répertoire de compilation (TeX ne les crée pas pour les `.aux` des
-  `\include`). Biber est lancé avec `--output-directory`, BibTeX dans le
-  répertoire de compilation avec `BIBINPUTS`/`BSTINPUTS` pointant sur les sources.
-- Le répertoire de compilation est conservé d'une fois sur l'autre (moins de
-  passes) ; `ktex clean` le supprime, uniquement s'il contient le fichier
-  témoin `.ktex`. Il supprime aussi les fichiers auxiliaires restés dans
-  les sources (listés comme `OUTPUT` dans les `.fls`, ou d'extension
-  auxiliaire et de même nom de base qu'un `.tex`), sans jamais toucher aux
-  sources ni au PDF final.
-- Sur place (`build_dir = "."`), avec `\include`, les `.aux` des chapitres ne
-  dépendent pas du nom de job : deux cibles qui incluent les mêmes chapitres
-  les partagent. Hors des sources, chaque document a son propre répertoire.
+- LaTeX is run from the source directory with `-output-directory=<build_dir>`,
+  `max_print_line=10000` (unwrapped log lines), `-file-line-error`,
+  `-interaction=nonstopmode` and `-recorder`. Subdirectories of the sources
+  that contain `.tex` files are recreated in the build directory (TeX doesn't
+  create them for the `.aux` files of `\include`s). Biber is run with
+  `--output-directory`, BibTeX in the build directory with
+  `BIBINPUTS`/`BSTINPUTS` pointing to the sources.
+- The build directory is kept from one build to the next (fewer passes);
+  `ktex clean` removes it, only if it contains the `.ktex` marker file. It also
+  removes the auxiliary files left in the sources (listed as `OUTPUT` in the
+  `.fls` files, or with an auxiliary extension and the same base name as a
+  `.tex` file), never touching the sources or the final PDF.
+- In place (`build_dir = "."`), with `\include`, the `.aux` files of the
+  chapters don't depend on the job name: two targets that include the same
+  chapters share them. Outside the sources, each document has its own
+  directory.
+
+## License
+
+MIT

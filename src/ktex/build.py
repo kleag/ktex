@@ -1,5 +1,5 @@
-"""Compilation complète : passes LaTeX, bibliographie, copie atomique du
-PDF et rapport d'erreurs."""
+"""Full build: LaTeX passes, bibliography, atomic installation of the PDF
+and error report."""
 
 import hashlib
 import os
@@ -9,16 +9,17 @@ import subprocess
 import sys
 
 from . import logcheck
+from .i18n import _
 from .config import detect_bib, detect_engine
 
-# Messages par lesquels LaTeX et ses paquets réclament une passe de plus
+# Messages by which LaTeX and its packages ask for another pass
 RE_RERUN = re.compile(
     r"Rerun to get|Label\(s\) may have changed|Please rerun LaTeX|Rerun LaTeX|"
     r"\(rerunfilecheck\).*[Rr]erun")
 
 
-# Fichier témoin d'un répertoire de compilation créé par ktex (seul cas
-# où ktex clean le supprime entièrement)
+# Marker file of a build directory created by ktex (the only case where
+# ktex clean removes it entirely)
 MARKER = ".ktex"
 
 
@@ -26,39 +27,40 @@ def step(msg):
     print(f"--- {msg} ---", flush=True)
 
 
-def run_logged(cmd, log_path, env, quiet=False, cwd=None):
-    """Lance cmd en recopiant sa sortie, au fil de l'eau, dans log_path et
-    (sauf quiet) sur le terminal : « cmd 2>&1 | tee log_path »."""
+def run_logged(cmd, log_path, env, verbose=False, cwd=None):
+    """Run cmd with its output written to log_path: "cmd >& log_path", or,
+    if verbose, also copied as it comes to the terminal: "cmd 2>&1 | tee log_path"."""
     out = sys.stdout.buffer
     with open(log_path, "wb") as log:
         try:
-            proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL,
+                                    stdout=subprocess.PIPE if verbose else log,
                                     stderr=subprocess.STDOUT, env=env, cwd=cwd)
         except FileNotFoundError:
-            msg = f"ktex: commande introuvable : {cmd[0]}\n".encode()
+            msg = ("ktex: " + _("command not found: {cmd}", cmd=cmd[0]) + "\n").encode()
             log.write(msg)
             out.write(msg)
             out.flush()
             return 127
         try:
-            for chunk in iter(lambda: proc.stdout.read1(65536), b""):
-                if not quiet:
+            if verbose:
+                for chunk in iter(lambda: proc.stdout.read1(65536), b""):
                     out.write(chunk)
                     out.flush()
-                log.write(chunk)
+                    log.write(chunk)
+            return proc.wait()
         except KeyboardInterrupt:
             proc.terminate()
             proc.wait()
             raise
-        return proc.wait()
 
 
-# Fichiers relus par la passe suivante : s'ils changent, il faut une passe de plus
+# Files read back by the next pass: if they change, another pass is needed
 STATE_EXTENSIONS = (".aux", ".toc", ".lof", ".lot", ".out", ".nav", ".snm", ".bbl")
 
 
 def state_digest(bdir):
-    """Empreinte des fichiers auxiliaires du répertoire de compilation."""
+    """Digest of the auxiliary files of the build directory."""
     h = hashlib.sha1()
     for d, dirs, names in os.walk(bdir):
         dirs.sort()
@@ -85,7 +87,7 @@ def needs_rerun(jobpath):
 def purge_corrupt_aux():
     bad = logcheck.corrupt_aux_files()
     if bad:
-        step("Removing truncated .aux files from an interrupted run")
+        step(_("Removing truncated .aux files from an interrupted run"))
         for f in bad:
             print(f)
             try:
@@ -95,14 +97,14 @@ def purge_corrupt_aux():
 
 
 def mirror_tree(root, build_dir):
-    """Avec -output-directory, TeX écrit l'.aux de \\include{dir/chap} dans
-    build_dir/dir/ sans créer ce répertoire : on reproduit l'arborescence des
-    sources (répertoires contenant des .tex)."""
+    """With -output-directory, TeX writes the .aux of \\include{dir/chap} to
+    build_dir/dir/ without creating that directory: mirror the source tree
+    (directories containing .tex files)."""
     os.makedirs(build_dir, exist_ok=True)
     marker = os.path.join(build_dir, MARKER)
     if not os.path.exists(marker):
         with open(marker, "w") as f:
-            f.write(f"Répertoire de compilation de ktex pour {root}\n")
+            f.write(f"ktex build directory for {root}\n")
     for d, dirs, names in os.walk(root):
         dirs[:] = [x for x in dirs if not x.startswith(".")
                    and os.path.abspath(os.path.join(d, x)) != build_dir]
@@ -111,8 +113,8 @@ def mirror_tree(root, build_dir):
 
 
 def install_atomic(src, dest):
-    """Remplace dest par src sans que dest soit jamais vide ou partiel, même
-    si src est sur un autre système de fichiers (/tmp en tmpfs)."""
+    """Replace dest by src without dest ever being empty or partial, even
+    when src is on another filesystem (/tmp on tmpfs)."""
     try:
         os.replace(src, dest)
     except OSError:
@@ -123,27 +125,27 @@ def install_atomic(src, dest):
 
 
 def build(t, color=None):
-    """Compile la cible t. Renvoie le code de sortie (0 si le PDF a été produit)."""
+    """Build target t. Return the exit status (0 if the PDF was produced)."""
     if color is None:
         color = sys.stdout.isatty()
     root = os.path.abspath(t.root)
     os.chdir(root)
     if not os.path.isfile(t.main):
-        print(f"ktex: {t.main} introuvable dans {root}", file=sys.stderr)
+        print("ktex: " + _("{main} not found in {root}", main=t.main, root=root), file=sys.stderr)
         return 2
     bdir = t.build_path
     logcheck.set_root(root, bdir)
     engine = t.engine if t.engine != "auto" else detect_engine(t.main)
     job = t.job
     jobpath = os.path.join(bdir, job)
-    errors_log = t.log("errors")  # rapport dans les sources, logs bruts dans bdir
-    # Pas de coupure des lignes du log à 79 colonnes : noms de fichiers et
-    # messages restent sur une ligne, analysable par logcheck
+    errors_log = t.log("errors")  # report next to the sources, raw logs in bdir
+    # Log lines not wrapped at 79 columns: file names and messages stay on
+    # one line, which logcheck can parse
     env = dict(os.environ, max_print_line="10000")
-    # -file-line-error : erreurs au format ./fichier.tex:LIGNE: message
-    # -interaction=nonstopmode : jamais d'arrêt sur l'invite « ? » ; une passe
-    # tuée pendant cette attente laisse des .aux tronqués
-    # -recorder : liste des fichiers lus et produits dans <job>.fls
+    # -file-line-error: errors as ./file.tex:LINE: message
+    # -interaction=nonstopmode: never stop at the "?" prompt; a pass killed
+    # while waiting there leaves truncated .aux files
+    # -recorder: list of the files read and written in <job>.fls
     latex = [engine, "-file-line-error", "-interaction=nonstopmode", "-recorder",
              f"-jobname={job}"]
     if t.out_of_source:
@@ -154,22 +156,24 @@ def build(t, color=None):
     try:
         if t.out_of_source:
             mirror_tree(root, bdir)
-        # Des .aux tronqués par une compilation interrompue font échouer la
-        # passe suivante dès \begin{document} (« File ended while scanning use of… »)
+        # .aux files truncated by an interrupted run make the next pass fail
+        # at \begin{document} ("File ended while scanning use of…")
         purge_corrupt_aux()
 
         npass = 1
         fixed = t.passes if isinstance(t.passes, int) else None
-        total = f" of {fixed}" if fixed else ""
+        total = _(" of {n}", n=fixed) if fixed else ""
 
-        changed = True  # les fichiers auxiliaires ont-ils changé pendant la dernière passe ?
+        changed = True  # did the auxiliary files change during the last pass?
 
         def latex_pass():
             nonlocal changed
-            step(f"Running {engine} (pass {npass}{total})")
+            step(_("Running {engine} (pass {n}{total})", engine=engine, n=npass, total=total))
             before = state_digest(bdir)
-            if run_logged(latex, os.path.join(bdir, t.log(npass)), env, t.quiet) != 0:
-                print(f"ERROR: {engine} failed on pass {npass}. Aborting.")
+            log = os.path.join(bdir, t.log(npass))
+            if run_logged(latex, log, env, t.verbose) != 0:
+                print(_("ERROR: {engine} failed on pass {n} (output in {log}). Aborting.",
+                        engine=engine, n=npass, log=log))
                 return False
             changed = state_digest(bdir) != before
             return True
@@ -179,19 +183,20 @@ def build(t, color=None):
 
         bib = t.bib if t.bib != "auto" else detect_bib(jobpath)
         if bib != "none":
-            step(f"Running {bib} for bibliography")
+            step(_("Running {bib} for bibliography", bib=bib))
             if bib == "biber":
-                # Lancé depuis les sources : chemins des .bib relatifs à root
+                # Run from the sources: .bib paths are relative to root
                 cmd, cwd, benv = ["biber", f"--output-directory={bdir}", job], root, env
             else:
-                # bibtex écrit à côté du .aux : on le lance dans bdir en lui
-                # indiquant où chercher .bib et .bst
+                # bibtex writes next to the .aux: run it in bdir and tell it
+                # where to find the .bib and .bst files
                 sep = os.pathsep
                 benv = dict(env, BIBINPUTS=root + sep + env.get("BIBINPUTS", ""),
                             BSTINPUTS=root + sep + env.get("BSTINPUTS", ""))
                 cmd, cwd = ["bibtex", job], bdir
-            if run_logged(cmd, os.path.join(bdir, t.log("bib")), benv, t.quiet, cwd=cwd) != 0:
-                print(f"ERROR: {bib} failed. Aborting.")
+            log = os.path.join(bdir, t.log("bib"))
+            if run_logged(cmd, log, benv, t.verbose, cwd=cwd) != 0:
+                print(_("ERROR: {bib} failed (output in {log}). Aborting.", bib=bib, log=log))
                 return 1
 
         while True:
@@ -199,40 +204,40 @@ def build(t, color=None):
                 if npass >= fixed:
                     break
             else:
-                # Après la bibliographie il faut au moins une passe (deux pour
-                # bibtex) ; ensuite, tant que les fichiers auxiliaires changent
-                # (table des matières, navigation beamer… ne le signalent pas
-                # toujours) ou que LaTeX réclame une passe
+                # After the bibliography, at least one pass (two for bibtex);
+                # then as long as the auxiliary files change (the table of
+                # contents, beamer navigation… don't always say so) or LaTeX
+                # asks for another pass
                 want = ((bib != "none" and npass < (3 if bib == "bibtex" else 2))
                         or changed or needs_rerun(jobpath))
                 if not want:
                     break
                 if npass >= t.max_passes:
-                    print(f"WARNING: still asking for a rerun after {npass} passes; giving up.")
+                    print(_("WARNING: still asking for a rerun after {n} passes; giving up.", n=npass))
                     break
             npass += 1
             if not latex_pass():
-                print_banner("❌ Failure: LaTeX compilation reported an error.\nThe final PDF was not updated.")
+                print_banner(_("❌ Failure: LaTeX compilation reported an error.\nThe final PDF was not updated."))
                 return 1
 
         if not os.path.isfile(jobpath + ".pdf"):
-            print_banner(f"❌ Failure: {jobpath}.pdf was not produced.")
+            print_banner(_("❌ Failure: {pdf} was not produced.", pdf=jobpath + ".pdf"))
             return 1
-        step("Moving PDF to final destination")
-        # Remplacement atomique : la visionneuse ne voit jamais un PDF vide ou partiel
+        step(_("Moving PDF to final destination"))
+        # Atomic replacement: the viewer never sees an empty or partial PDF
         install_atomic(jobpath + ".pdf", t.pdf)
         if os.path.isfile(jobpath + ".synctex.gz"):
             install_atomic(jobpath + ".synctex.gz", os.path.splitext(t.pdf)[0] + ".synctex.gz")
-        print_banner(f"✅ Success: Full compilation process complete!\nFinal file: {t.pdf}")
+        print_banner(_("✅ Success: Full compilation process complete!\nFinal file: {pdf}", pdf=t.pdf))
         return 0
     finally:
-        # Quelle que soit l'issue, résumer erreurs et avertissements avec leur fichier:ligne
+        # Whatever the outcome, summarize errors and warnings with their file:line
         if os.path.isfile(jobpath + ".log"):
-            step(f"Errors and warnings (details in {errors_log})")
+            step(_("Errors and warnings (details in {report})", report=errors_log))
             try:
                 logcheck.report(jobpath, errors_log, color=color, show_boxes=t.show_boxes)
-            except Exception as e:  # le rapport ne doit jamais masquer l'issue du build
-                print(f"ktex: analyse du log impossible : {e}", file=sys.stderr)
+            except Exception as e:  # the report must never mask the build's outcome
+                print("ktex: " + _("cannot analyze the log: {error}", error=e), file=sys.stderr)
 
 
 def print_banner(msg):

@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python }}
+      # Without TeX, the integration tests are skipped.
+      - run: uv run --locked --no-default-groups --group test pytest -q -rs
+
+  integration:
+    name: Integration (TeX Live)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install TeX Live
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            texlive-latex-base texlive-latex-recommended texlive-latex-extra \
+            texlive-xetex texlive-bibtex-extra biber fonts-lmodern lmodern
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.13"
+      # KTEX_REQUIRE_TEX: a missing tool is an error instead of a skip.
+      - run: uv run --locked --no-default-groups --group test pytest -q -rs
+        env:
+          KTEX_REQUIRE_TEX: "1"
+
+  docs:
+    name: Docs (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+      # English site at the root, then the French one in site/fr/
+      - run: uv run --locked --only-group docs zensical build --strict --clean
+      - run: uv run --locked --only-group docs zensical build --strict -f zensical.fr.toml

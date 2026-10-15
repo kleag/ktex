@@ -1,0 +1,72 @@
+# French documentation, built into site/fr/ after the English one (zensical.toml)
+[project]
+site_name = "ktex"
+site_description = "Compilation LaTeX complète et rapport d'erreurs localisées par fichier:ligne"
+site_author = "Gaël de Chalendar"
+site_url = "https://kleag.github.io/ktex/fr/"
+docs_dir = "docs/fr"
+site_dir = "site/fr"
+repo_url = "https://github.com/kleag/ktex"
+repo_name = "kleag/ktex"
+edit_uri = "edit/main/docs/fr/"
+copyright = "© 2026 Gaël de Chalendar — licence MIT"
+nav = [
+  { "Accueil" = "index.md" },
+  { "Installation" = "installation.md" },
+  { "Utilisation" = "usage.md" },
+  { "Configuration" = "configuration.md" },
+  { "Détection automatique" = "detection.md" },
+  { "Le rapport d'erreurs" = "report.md" },
+  { "Fonctionnement" = "internals.md" },
+  { "Contribuer" = "contributing.md" },
+]
+
+[project.theme]
+language = "fr"
+features = [
+  "content.action.edit",
+  "content.code.copy",
+  "navigation.footer",
+  "navigation.instant",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Thème clair"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Thème sombre"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Thème du système"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+def_list = {}
+md_in_html = {}
+toc.permalink = true
+pymdownx.details = {}
+pymdownx.highlight = {}
+pymdownx.inlinehilite = {}
+pymdownx.superfences = {}
+
+[[project.extra.alternate]]
+name = "English"
+link = "/ktex/"
+lang = "en"
+
+[[project.extra.alternate]]
+name = "Français"
+link = "/ktex/fr/"
+lang = "fr"

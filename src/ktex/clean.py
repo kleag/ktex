@@ -1,15 +1,16 @@
-"""Suppression des fichiers auxiliaires, sans toucher aux sources.
+"""Removal of auxiliary files, without touching the sources.
 
-Deux sources de vérité, sans jamais descendre en dehors de la racine :
-- les lignes OUTPUT des fichiers <job>.fls écrits par -recorder ;
-- à défaut, les extensions auxiliaires usuelles, uniquement pour les fichiers
-  dont le nom de base est celui d'un .tex existant ou d'un job connu.
+Two sources of truth, never going outside the root:
+- the OUTPUT lines of the <job>.fls files written by -recorder;
+- otherwise, the usual auxiliary extensions, only for files whose base name
+  is that of an existing .tex file or of a known job.
 """
 
 import os
 import shutil
 
 from .build import MARKER
+from .i18n import _
 
 AUX_EXTENSIONS = (
     ".aux", ".bbl", ".bcf", ".blg", ".fls", ".lof", ".log", ".lot", ".nav", ".out",
@@ -17,7 +18,7 @@ AUX_EXTENSIONS = (
     ".glo", ".gls", ".glg", ".ist", ".acn", ".acr", ".alg", ".loa", ".lol", ".thm",
     ".fdb_latexmk",
 )
-# Ne jamais supprimer ces fichiers, même s'ils apparaissent comme OUTPUT
+# Never remove these files, even if they appear as OUTPUT
 PROTECTED = (".tex", ".bib", ".sty", ".cls", ".bst", ".bbx", ".cbx", ".png", ".jpg",
              ".jpeg", ".svg", ".eps")
 
@@ -60,18 +61,18 @@ def _by_extension(root, jobs, keep):
 
 
 def clean(t, dry_run=False, logs=True):
-    """Supprime le répertoire de compilation de la cible t s'il est hors des
-    sources, et les fichiers auxiliaires restés dans les sources (compilation
-    sur place, ancienne compilation…)."""
+    """Remove the build directory of target t if it is outside the sources,
+    and the auxiliary files left in the sources (in-place build, older
+    builds…)."""
     root = os.path.abspath(t.root)
     bdir = t.build_path
     removed_dir = False
     if t.out_of_source and os.path.isdir(bdir):
-        # Uniquement un répertoire créé par ktex, et jamais un parent des sources
+        # Only a directory created by ktex, and never a parent of the sources
         if root == bdir or root.startswith(bdir + os.sep) or not os.path.isfile(os.path.join(bdir, MARKER)):
-            print(f"ktex: {bdir} n'a pas été créé par ktex (pas de {MARKER}) : non supprimé")
+            print("ktex: " + _("{dir} was not created by ktex (no {marker}): not removed", dir=bdir, marker=MARKER))
         else:
-            print(("would remove " if dry_run else "removed ") + bdir + os.sep)
+            print(_("would remove {path}" if dry_run else "removed {path}", path=bdir + os.sep))
             if not dry_run:
                 shutil.rmtree(bdir)
             removed_dir = True
@@ -87,9 +88,9 @@ def clean(t, dry_run=False, logs=True):
                 victims.add(os.path.join(root, nm))
     victims = sorted(p for p in victims if os.path.isfile(p))
     for p in victims:
-        print(("would remove " if dry_run else "removed ") + os.path.relpath(p, root))
+        print(_("would remove {path}" if dry_run else "removed {path}", path=os.path.relpath(p, root)))
         if not dry_run:
             os.remove(p)
     if not victims and not removed_dir:
-        print("nothing to clean")
+        print(_("nothing to clean"))
     return 0

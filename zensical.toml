@@ -1,0 +1,71 @@
+[project]
+site_name = "ktex"
+site_description = "Full LaTeX build and report of errors located as file:line"
+site_author = "Gaël de Chalendar"
+site_url = "https://kleag.github.io/ktex/"
+docs_dir = "docs/en"
+site_dir = "site"
+repo_url = "https://github.com/kleag/ktex"
+repo_name = "kleag/ktex"
+edit_uri = "edit/main/docs/en/"
+copyright = "© 2026 Gaël de Chalendar — MIT License"
+nav = [
+  { "Home" = "index.md" },
+  { "Installation" = "installation.md" },
+  { "Usage" = "usage.md" },
+  { "Configuration" = "configuration.md" },
+  { "Automatic detection" = "detection.md" },
+  { "The error report" = "report.md" },
+  { "Internals" = "internals.md" },
+  { "Contributing" = "contributing.md" },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.action.edit",
+  "content.code.copy",
+  "navigation.footer",
+  "navigation.instant",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+def_list = {}
+md_in_html = {}
+toc.permalink = true
+pymdownx.details = {}
+pymdownx.highlight = {}
+pymdownx.inlinehilite = {}
+pymdownx.superfences = {}
+
+[[project.extra.alternate]]
+name = "English"
+link = "/ktex/"
+lang = "en"
+
+[[project.extra.alternate]]
+name = "Français"
+link = "/ktex/fr/"
+lang = "fr"
