@@ -65,17 +65,18 @@ Les numéros de version sont gérés par [bumpver](https://github.com/mbarkhau/b
 La version est écrite dans `pyproject.toml` (`[tool.bumpver]`) et dans
 `src/ktex/__init__.py`, et le paquet lit la sienne dans ce dernier.
 
-1. Déplacer les entrées de « Unreleased » de `CHANGELOG.md` sous la nouvelle
-   version, puis commiter.
-2. Changer de version : bumpver modifie les deux fichiers, commite et crée le
-   tag `vX.Y.Z`.
+1. Écrire les changements sous « Unreleased » dans `CHANGELOG.md` et les
+   commiter (au fil de l'eau, avec les modifications elles-mêmes).
+2. Publier :
    ```sh
    uv run bumpver update --patch     # ou --minor, --major ; --dry pour voir
    ```
-3. Pousser le commit et le tag :
-   ```sh
-   git push --follow-tags
-   ```
-4. Le workflow `release.yml` lance les tests, vérifie que le tag correspond à
+   bumpver modifie les deux fichiers, puis son hook de pré-commit
+   (`scripts/changelog_release.py`) déplace les entrées de « Unreleased » de
+   `CHANGELOG.md` sous la nouvelle version, datée du jour. bumpver commite,
+   crée le tag `vX.Y.Z` et pousse les deux. Le hook arrête la publication
+   avant le commit si « Unreleased » est vide ; `git checkout pyproject.toml
+   src/ktex/__init__.py` annule alors le changement de version.
+3. Le workflow `release.yml` lance les tests, vérifie que le tag correspond à
    `__version__`, construit les paquets avec `uv build`, les publie sur PyPI
    (Trusted Publishing) et crée la release GitHub.

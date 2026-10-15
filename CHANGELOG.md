@@ -5,6 +5,8 @@ Notable changes to ktex are listed here. The project follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-15
+
 - Watch mode: `ktex -w` (`--watch`) rebuilds the document whenever one of the
   source files it reads changes (found in the `.fls` file, plus the
   bibliography databases). Inspired by
@@ -28,5 +30,6 @@ First public release.
 - Messages, help and report in English, or in French depending on the locale
   (`KTEX_LANG` to override).
 
-[Unreleased]: https://github.com/kleag/ktex/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/kleag/ktex/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/kleag/ktex/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kleag/ktex/releases/tag/v0.1.0

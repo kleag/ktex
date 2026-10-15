@@ -55,7 +55,9 @@ tag_message = "Version {new_version}"
 tag_scope = "default"
 commit = true
 tag = true
-push = false
+push = true
+# Moves the "Unreleased" entries of CHANGELOG.md under the new version
+pre_commit_hook = "scripts/changelog_release.py"
 
 [tool.bumpver.file_patterns]
 "pyproject.toml" = ['current_version = "{version}"']

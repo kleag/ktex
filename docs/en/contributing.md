@@ -63,17 +63,18 @@ Version numbers are managed with [bumpver](https://github.com/mbarkhau/bumpver).
 The version is written in `pyproject.toml` (`[tool.bumpver]`) and in
 `src/ktex/__init__.py`, from which the package reads its own.
 
-1. Move the "Unreleased" entries of `CHANGELOG.md` under the new version, and
-   commit.
-2. Bump the version: bumpver updates both files, commits and creates the
-   `vX.Y.Z` tag.
+1. Write the changes under "Unreleased" in `CHANGELOG.md`, and commit them
+   (as you go, along with the changes themselves).
+2. Release:
    ```sh
    uv run bumpver update --patch     # or --minor, --major; --dry to preview
    ```
-3. Push the commit and the tag:
-   ```sh
-   git push --follow-tags
-   ```
-4. The `release.yml` workflow runs the tests, checks that the tag matches
+   bumpver updates both files, then its pre-commit hook
+   (`scripts/changelog_release.py`) moves the "Unreleased" entries of
+   `CHANGELOG.md` under the new version, dated today. bumpver commits, creates
+   the `vX.Y.Z` tag and pushes both. The hook stops the release before the
+   commit if "Unreleased" is empty; `git checkout pyproject.toml
+   src/ktex/__init__.py` then undoes the version change.
+3. The `release.yml` workflow runs the tests, checks that the tag matches
    `__version__`, builds the packages with `uv build`, publishes them to PyPI
    (Trusted Publishing) and creates the GitHub release.
