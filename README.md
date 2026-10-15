@@ -39,6 +39,7 @@ Full documentation: <https://kleag.github.io/ktex/>.
 ## Usage
 
 ```sh
+ktex init                # create a ktex.toml for the project of the current directory (optional)
 ktex                     # build the default target (or the only main .tex file of the directory)
 ktex thesis.tex          # build a given file
 ktex slides              # build the "slides" target of ktex.toml
@@ -49,7 +50,6 @@ ktex check               # re-analyze the log of the last build
 ktex clean [--dry-run]   # remove auxiliary files
 ktex corrupt-aux         # list truncated .aux files
 ktex targets             # list the configured targets
-ktex init                # create a ktex.toml for the project of the current directory
 ```
 
 Files produced (prefix `output` by default, option `log_prefix`): in the build

@@ -39,6 +39,7 @@ Documentation complète : <https://kleag.github.io/ktex/fr/>.
 ## Utilisation
 
 ```sh
+ktex init                # crée un ktex.toml pour le projet du répertoire courant (facultatif)
 ktex                     # compile la cible par défaut (ou l'unique .tex principal du répertoire)
 ktex these.tex           # compile un fichier donné
 ktex soutenance          # compile la cible « soutenance » du ktex.toml
@@ -49,7 +50,6 @@ ktex check               # ré-analyse le log de la dernière compilation
 ktex clean [--dry-run]   # supprime les fichiers auxiliaires
 ktex corrupt-aux         # liste les .aux tronqués
 ktex targets             # liste les cibles configurées
-ktex init                # crée un ktex.toml pour le projet du répertoire courant
 ```
 
 Fichiers produits (préfixe `output` par défaut, option `log_prefix`) : dans le

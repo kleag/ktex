@@ -1,5 +1,19 @@
 # Utilisation
 
+## Premiers pas
+
+```sh
+cd mon-document          # ou n'importe lequel de ses sous-répertoires
+ktex init                # crée ktex.toml, avec une cible par fichier .tex principal
+ktex                     # compile la cible par défaut
+```
+
+`ktex init` est facultatif : sans `ktex.toml`, `ktex` compile l'unique fichier
+`.tex` principal du répertoire courant. Un fichier de configuration permet de
+compiler depuis n'importe quel sous-répertoire, de nommer plusieurs documents
+et de fixer des [options](configuration.md). Voir [`ktex init`](#ktex-init)
+plus bas.
+
 ## Compiler
 
 ```sh
@@ -41,7 +55,7 @@ ktex -v                  # afficher aussi la sortie brute de LaTeX et Biber
 
 ## Autres commandes
 
-`ktex init`
+`ktex init`{ #ktex-init }
 :   Crée un [`ktex.toml`](configuration.md) pour le projet LaTeX du
     répertoire courant : le plus proche répertoire, en remontant depuis le
     répertoire courant (sans sortir du dépôt git), qui contient des fichiers

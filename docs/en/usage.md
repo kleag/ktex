@@ -1,5 +1,18 @@
 # Usage
 
+## Getting started
+
+```sh
+cd my-document           # or any subdirectory of it
+ktex init                # create ktex.toml, with one target per main .tex file
+ktex                     # build the default target
+```
+
+`ktex init` is optional: without a `ktex.toml`, `ktex` builds the only main
+`.tex` file of the current directory. A configuration file lets you build from
+any subdirectory, name several documents, and set
+[options](configuration.md). See [`ktex init`](#ktex-init) below.
+
 ## Building
 
 ```sh
@@ -41,7 +54,7 @@ ktex -v                  # also show the raw output of LaTeX and Biber
 
 ## Other commands
 
-`ktex init`
+`ktex init`{ #ktex-init }
 :   Create a [`ktex.toml`](configuration.md) for the LaTeX project of the
     current directory: the closest directory, from the current one up (without
     leaving the git repository), that contains main `.tex` files. It defines
