@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ktex"
+version = "0.1.0"
+description = "Compilation LaTeX complète (passes, Biber/BibTeX, PDF atomique) et rapport d'erreurs localisées par fichier:ligne"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Gaël de Chalendar" }]
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+ktex = "ktex.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ktex"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
