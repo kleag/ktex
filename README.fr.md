@@ -23,6 +23,8 @@ Compilation LaTeX complète, en une commande, pour n'importe quel document :
   regroupement des occurrences et indices : environnement non fermé, `\label`
   dupliqué, clé de citation absente (et où elle est citée), option de paquet
   inconnue, citations indéfinies simplement en attente de Biber…
+- **mode surveillance** (`ktex -w`) : recompilation à chaque modification d'un
+  des fichiers que lit le document.
 
 Python ≥ 3.11. Messages en français si la locale est française (ou avec
 `KTEX_LANG=fr`), en anglais sinon.
@@ -46,6 +48,7 @@ ktex soutenance          # compile la cible « soutenance » du ktex.toml
 ktex build -e lualatex -b bibtex -n 2 these.tex   # options explicites
 ktex -v                  # affiche aussi la sortie brute de LaTeX/Biber (toujours dans les logs)
 ktex -d .                # compilation sur place, à l'ancienne
+ktex -w                  # compile, puis recompile à chaque modification d'un fichier source
 ktex check               # ré-analyse le log de la dernière compilation
 ktex clean [--dry-run]   # supprime les fichiers auxiliaires
 ktex corrupt-aux         # liste les .aux tronqués
@@ -115,6 +118,12 @@ sur place), `output` (défaut `<main>.pdf`), `log_prefix`, `verbose`,
 - Sur place (`build_dir = "."`), avec `\include`, les `.aux` des chapitres ne
   dépendent pas du nom de job : deux cibles qui incluent les mêmes chapitres
   les partagent. Hors des sources, chaque document a son propre répertoire.
+
+## Remerciements
+
+Le mode surveillance (`-w`) s'inspire de
+[texbuild](https://github.com/SamDM/texbuild), et son usage du fichier `.fls`
+pour trouver les fichiers à surveiller, de [latexmk](https://ctan.org/pkg/latexmk).
 
 ## Licence
 

@@ -23,6 +23,8 @@ A complete LaTeX build, in one command, for any document:
   occurrences and hints: unclosed environment, duplicate `\label`, citation key
   missing (and where it is cited), unknown package option, undefined citations
   merely waiting for Biber…
+- **watch mode** (`ktex -w`): rebuild whenever one of the files the document
+  reads changes.
 
 Python ≥ 3.11. Messages in English, or in French when the locale is French (or
 with `KTEX_LANG=fr`).
@@ -46,6 +48,7 @@ ktex slides              # build the "slides" target of ktex.toml
 ktex build -e lualatex -b bibtex -n 2 thesis.tex   # explicit options
 ktex -v                  # also show the raw output of LaTeX/Biber (always in the logs)
 ktex -d .                # build in place, the old way
+ktex -w                  # build, then rebuild whenever a source file changes
 ktex check               # re-analyze the log of the last build
 ktex clean [--dry-run]   # remove auxiliary files
 ktex corrupt-aux         # list truncated .aux files
@@ -115,6 +118,12 @@ extra engine options, for example `["-synctex=1", "-shell-escape"]`),
   chapters don't depend on the job name: two targets that include the same
   chapters share them. Outside the sources, each document has its own
   directory.
+
+## Acknowledgements
+
+The watch mode (`-w`) was inspired by
+[texbuild](https://github.com/SamDM/texbuild), and its use of the `.fls` file
+to find the files to watch by [latexmk](https://ctan.org/pkg/latexmk).
 
 ## License
 

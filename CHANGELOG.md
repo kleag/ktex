@@ -5,6 +5,10 @@ Notable changes to ktex are listed here. The project follows
 
 ## [Unreleased]
 
+- Watch mode: `ktex -w` (`--watch`) rebuilds the document whenever one of the
+  source files it reads changes (found in the `.fls` file, plus the
+  bibliography databases). Inspired by
+  [texbuild](https://github.com/SamDM/texbuild) and latexmk's `-pvc`.
 - `ktex init`: create a `ktex.toml` for the LaTeX project of the current
   directory, with one target per main file.
 - The raw output of LaTeX and Biber is hidden by default (it is still in the

@@ -40,6 +40,7 @@ Options of `ktex build`:
 | `-v`, `--verbose` | show the raw output of LaTeX/Biber (hidden by default; it is always in the logs) |
 | `-q`, `--quiet` | hide the raw output (the default; overrides `verbose = true`) |
 | `--boxes` | also detail bad boxes in the terminal |
+| `-w`, `--watch` | rebuild whenever a source file changes, until Ctrl-C (see [Watch mode](#watch-mode)) |
 | `--color`, `--no-color` | force or disable colors (default: if the output is a terminal and `NO_COLOR` is not set) |
 
 Command-line options take precedence over `ktex.toml`. Paths given on the
@@ -50,7 +51,28 @@ ktex build -e lualatex -b bibtex -n 2 thesis.tex
 ktex -d .                # build in place, the old way
 ktex -o ~/thesis.pdf     # write the PDF elsewhere
 ktex -v                  # also show the raw output of LaTeX and Biber
+ktex -w                  # build, then rebuild on every change
 ```
+
+## Watch mode
+
+With `-w`/`--watch`, ktex builds the document, then waits and rebuilds it
+each time one of its source files changes, until you press Ctrl-C. Keep the PDF
+open in a viewer that reloads it when it changes. The PDF is only replaced when
+a build succeeds, so you keep reading the previous version while a build runs
+or after a failed one.
+
+The watched files are the ones the last build read inside the source directory:
+the `INPUT` lines of the `.fls` file that TeX writes with `-recorder` (`.tex`
+files, local classes and packages, images…), plus the bibliography databases
+(even outside the source directory), read by Biber or BibTeX outside TeX. Files of the TeX distribution and files
+produced by the build are not watched. The files are checked twice a second;
+a change made while a build runs triggers another build right after it.
+
+Limits: a file that the document doesn't read yet (a new chapter that
+`\input` refers to but that doesn't exist) is watched only once a build has
+read it. Changes to `ktex.toml` are taken into account only when ktex is
+restarted.
 
 ## Other commands
 
@@ -94,7 +116,8 @@ with `--boxes`. The full report always contains everything.
 
 `ktex build` returns 0 if the build succeeded. Otherwise it returns a non-zero
 status and the previous PDF is kept. A configuration error (unknown target,
-invalid `ktex.toml`…) returns 2.
+invalid `ktex.toml`…) returns 2. In watch mode, ktex returns the status of
+the last build when you stop it.
 
 ## Language
 

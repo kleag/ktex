@@ -32,6 +32,12 @@ chapitres/intro.tex:5: LaTeX Error: \begin{itemize} on input line 3 ended by \en
     ↳ \begin{itemize} ouvert probablement en : chapitres/intro.tex:3
 ```
 
+Avec `ktex -w`, ktex [tient le PDF à jour](usage.md#mode-surveillance) : il
+recompile le document chaque fois qu'un de ses fichiers sources est modifié.
+Ce mode surveillance s'inspire de [texbuild](https://github.com/SamDM/texbuild),
+et sa façon de trouver les fichiers à surveiller (le fichier `.fls` écrit par
+TeX), de [latexmk](https://ctan.org/pkg/latexmk).
+
 ktex n'a besoin que de Python ≥ 3.11 et d'une distribution TeX (TeX Live,
 MiKTeX…) qui fournit les moteurs et outils voulus. Ses messages sont en
 français si la locale est française, en anglais sinon (voir

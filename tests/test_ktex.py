@@ -273,6 +273,82 @@ def test_error_keeps_old_pdf_and_reports_location(tmp_path, monkeypatch, capsys)
         assert "part.tex:3: Undefined control sequence" in f.read()
 
 
+# --- Watch mode --------------------------------------------------------------------
+
+def test_watch_dependencies(tmp_path):
+    from ktex.watch import dependencies
+    t = Target(main="doc.tex", root=str(tmp_path), build_dir="out")
+    for f in ("doc.tex", "chap/one.tex", "img/a.png", "refs.bib", "local.sty", "doc.pdf",
+              "output.errors.log", "out/doc.aux", "out/doc.bbl"):
+        write(tmp_path / f, "x")
+    write(tmp_path / "out/doc.fls", f"""
+        PWD {tmp_path}
+        INPUT /usr/share/texmf/tex/latex/base/article.cls
+        INPUT doc.tex
+        OUTPUT out/doc.log
+        INPUT ./chap/one.tex
+        INPUT {tmp_path}/local.sty
+        INPUT ./img/a.png
+        INPUT out/doc.aux
+        INPUT out/doc.bbl
+        INPUT ./missing.tex
+    """)
+    # A shared bibliography outside the sources is watched, a database of the
+    # TeX distribution found by Biber is not
+    write(tmp_path.parent / "shared/common.bib", "x")
+    write(tmp_path / "out/doc.bcf", """
+        <bcf:datasource type="file" datatype="bibtex">refs.bib</bcf:datasource>
+        <bcf:datasource type="file" datatype="bibtex">../shared/common.bib</bcf:datasource>
+        <bcf:datasource type="file" datatype="bibtex">biblatex-examples.bib</bcf:datasource>
+    """)
+    rel = lambda: sorted(os.path.relpath(p, os.path.realpath(tmp_path)) for p in dependencies(t))
+    assert rel() == ["../shared/common.bib", "chap/one.tex", "doc.tex", "img/a.png", "local.sty", "refs.bib"]
+    # In place: the job files and what LaTeX writes are not watched,
+    # the BibTeX database and a local style are
+    t = Target(main="doc.tex", root=str(tmp_path), build_dir=".")
+    write(tmp_path / "doc-tmp.fls", f"""
+        PWD {tmp_path}
+        INPUT doc.tex
+        INPUT doc-tmp.aux
+        OUTPUT doc-tmp.aux
+        INPUT doc-tmp.bbl
+        INPUT ./other.aux
+        OUTPUT ./other.aux
+    """)
+    write(tmp_path / "doc-tmp.aux", "\\bibstyle{mystyle}\n\\bibdata{refs,nope}\n")
+    for f in ("doc-tmp.bbl", "other.aux", "mystyle.bst"):
+        write(tmp_path / f, "x")
+    assert rel() == ["doc.tex", "mystyle.bst", "refs.bib"]
+
+
+def test_watch_rebuilds_on_change(tmp_path, capsys):
+    from ktex.watch import watch
+    t = Target(main="doc.tex", root=str(tmp_path), build_dir="out")
+    write(tmp_path / "doc.tex", "v1")
+    write(tmp_path / "part.tex", "p1")
+    write(tmp_path / "out/doc.fls", f"PWD {tmp_path}\nINPUT doc.tex\nINPUT part.tex\n")
+    builds = []
+
+    def build_fn(target):
+        builds.append(1)
+        if len(builds) == 1:
+            # Edited while the first build runs: rebuild right after it
+            write(tmp_path / "part.tex", "p2, longer")
+        return len(builds) % 2
+
+    sleeps = []
+
+    def sleep(seconds):
+        sleeps.append(seconds)
+        if len(builds) == 2 and len(sleeps) == 3:
+            write(tmp_path / "doc.tex", "v2, longer")
+
+    assert watch(t, build_fn, sleep=sleep, max_builds=3) == 1
+    out = capsys.readouterr().out
+    assert "part.tex changed" in out and "doc.tex changed" in out
+    assert "watching 2 file(s)" in out
+
+
 # --- Translations ----------------------------------------------------------------
 
 def test_detect_language():

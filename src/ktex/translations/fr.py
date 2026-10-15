@@ -22,6 +22,9 @@ MESSAGES = {
     "{main} not found in {root}": "{main} introuvable dans {root}",
     "cannot analyze the log: {error}": "analyse du log impossible : {error}",
     "command not found: {cmd}": "commande introuvable : {cmd}",
+    # watch
+    "watching {n} file(s) (Ctrl-C to stop)": "surveillance de {n} fichier(s) (Ctrl-C pour arrêter)",
+    "{files} changed, rebuilding": "{files} modifié(s), nouvelle compilation",
     # clean
     "would remove {path}": "supprimerait {path}",
     "removed {path}": "supprimé : {path}",
@@ -29,6 +32,8 @@ MESSAGES = {
     "{dir} was not created by ktex (no {marker}): not removed":
         "{dir} n'a pas été créé par ktex (pas de {marker}) : non supprimé",
     # cli
+    "rebuild whenever a source file changes, until Ctrl-C":
+        "recompiler à chaque modification d'un fichier source, jusqu'à Ctrl-C",
     "Full LaTeX build (passes, bibliography, atomic PDF) and report of errors located as file:line.":
         "Compilation LaTeX complète (passes, bibliographie, PDF atomique) "
         "et rapport d'erreurs localisées par fichier:ligne.",

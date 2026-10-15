@@ -31,6 +31,12 @@ chapters/intro.tex:5: LaTeX Error: \begin{itemize} on input line 3 ended by \end
     ↳ \begin{itemize} probably opened at: chapters/intro.tex:3
 ```
 
+With `ktex -w`, ktex [keeps the PDF up to date](usage.md#watch-mode): it
+rebuilds the document whenever one of its source files changes. This watch
+mode was inspired by [texbuild](https://github.com/SamDM/texbuild), and the
+way it finds the files to watch (the `.fls` file written by TeX) by
+[latexmk](https://ctan.org/pkg/latexmk).
+
 ktex only needs Python ≥ 3.11 and a TeX distribution (TeX Live, MiKTeX…) that
 provides the engines and tools you use. Its messages are in English, or in
 French when your locale is French (see [Usage](usage.md#language)).

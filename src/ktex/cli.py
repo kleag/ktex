@@ -10,6 +10,7 @@ from .clean import clean
 from .config import ConfigError, find_config, load_targets, resolve_target
 from .i18n import _
 from .init import init
+from .watch import watch
 
 
 def _add_target_args(p):
@@ -56,6 +57,8 @@ def main(argv=None):
                            help=_("hide the raw output of LaTeX/Biber (default)"))
     b.add_argument("--boxes", dest="show_boxes", action="store_true", default=None,
                    help=_("also detail bad boxes in the terminal"))
+    b.add_argument("-w", "--watch", action="store_true",
+                   help=_("rebuild whenever a source file changes, until Ctrl-C"))
 
     c = sub.add_parser("check", parents=[common], help=_("analyze the log of a previous build"))
     _add_target_args(c)
@@ -112,6 +115,8 @@ def main(argv=None):
         return 2
 
     if args.cmd == "build":
+        if args.watch:
+            return watch(t, lambda target: build(target, color=_color(args)))
         return build(t, color=_color(args))
 
     report = os.path.abspath(args.report) if args.cmd == "check" and args.report else None

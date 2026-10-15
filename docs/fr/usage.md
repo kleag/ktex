@@ -41,6 +41,7 @@ Options de `ktex build` :
 | `-v`, `--verbose` | afficher la sortie brute de LaTeX/Biber (masquée par défaut ; elle est toujours dans les logs) |
 | `-q`, `--quiet` | masquer la sortie brute (le défaut ; l'emporte sur `verbose = true`) |
 | `--boxes` | détailler aussi les boîtes mal remplies dans le terminal |
+| `-w`, `--watch` | recompiler à chaque modification d'un fichier source, jusqu'à Ctrl-C (voir [Mode surveillance](#mode-surveillance)) |
 | `--color`, `--no-color` | forcer ou désactiver la couleur (défaut : si la sortie est un terminal et que `NO_COLOR` n'est pas défini) |
 
 Les options de la ligne de commande l'emportent sur le `ktex.toml`. Les
@@ -51,7 +52,30 @@ ktex build -e lualatex -b bibtex -n 2 these.tex
 ktex -d .                # compilation sur place, à l'ancienne
 ktex -o ~/these.pdf      # PDF écrit ailleurs
 ktex -v                  # afficher aussi la sortie brute de LaTeX et Biber
+ktex -w                  # compiler, puis recompiler à chaque modification
 ```
+
+## Mode surveillance
+
+Avec `-w`/`--watch`, ktex compile le document, puis attend et le recompile
+chaque fois qu'un de ses fichiers sources est modifié, jusqu'à Ctrl-C. Gardez
+le PDF ouvert dans une visionneuse qui le recharge quand il change. Le PDF
+n'est remplacé que si la compilation réussit : vous continuez à lire la version
+précédente pendant une compilation ou après un échec.
+
+Les fichiers surveillés sont ceux que la dernière compilation a lus dans le
+répertoire des sources : les lignes `INPUT` du fichier `.fls` que TeX écrit
+avec `-recorder` (fichiers `.tex`, classes et paquets locaux, images…), plus
+les bases bibliographiques (même hors du répertoire des sources), lues par
+Biber ou BibTeX hors de TeX. Les fichiers
+de la distribution TeX et ceux produits par la compilation ne sont pas
+surveillés. Les fichiers sont vérifiés deux fois par seconde ; une
+modification faite pendant une compilation en déclenche une autre juste après.
+
+Limites : un fichier que le document ne lit pas encore (un nouveau chapitre
+appelé par `\input` mais qui n'existe pas) n'est surveillé qu'une fois qu'une
+compilation l'a lu. Les modifications du `ktex.toml` ne sont prises en compte
+qu'au redémarrage de ktex.
 
 ## Autres commandes
 
@@ -96,7 +120,8 @@ remplies qu'avec `--boxes`. Le rapport complet contient toujours tout.
 
 `ktex build` renvoie 0 si la compilation a réussi. Sinon il renvoie un code
 non nul, et le PDF précédent est conservé. Une erreur de configuration (cible
-inconnue, `ktex.toml` invalide…) renvoie 2.
+inconnue, `ktex.toml` invalide…) renvoie 2. En mode surveillance, ktex
+renvoie, quand on l'arrête, le code de la dernière compilation.
 
 ## Langue
 
