@@ -39,7 +39,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             texlive-latex-base texlive-latex-recommended texlive-latex-extra \
-            texlive-xetex texlive-bibtex-extra biber fonts-lmodern lmodern
+            texlive-xetex texlive-bibtex-extra biber fonts-lmodern lmodern \
+            texlive-fonts-recommended  # pzdr (ZapfDingbats), loaded by hyperref with xelatex
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.13"
